@@ -4,6 +4,9 @@ add_radarr_movie:
     title:
       description: "Title of the movie"
       example: "Gladiator"
+    instance:
+      description: "Optional instance selector (entry_id or service suffix). Required if multiple Radarr instances exist."
+      example: "8f3c22a1"
 
 add_sonarr_tv_show:
   description: "Add a TV show to Sonarr"
@@ -11,6 +14,9 @@ add_sonarr_tv_show:
     title:
       description: "Title of the TV show"
       example: "Breaking Bad"
+    instance:
+      description: "Optional instance selector (entry_id or service suffix). Required if multiple Sonarr instances exist."
+      example: "8f3c22a1"
 
 add_overseerr_movie:
   description: "Add a movie to Overseerr"
@@ -18,6 +24,9 @@ add_overseerr_movie:
     title:
       description: "Title of the movie"
       example: "Gladiator"
+    instance:
+      description: "Optional instance selector (entry_id or service suffix). Required if multiple Overseerr instances exist."
+      example: "8f3c22a1"
 
 add_overseerr_tv_show:
   description: "Add a TV show to Overseerr"
@@ -25,3 +34,6 @@ add_overseerr_tv_show:
     title:
       description: "Title of the TV show"
       example: "Breaking Bad"
+    instance:
+      description: "Optional instance selector (entry_id or service suffix). Required if multiple Overseerr instances exist."
+      example: "8f3c22a1"

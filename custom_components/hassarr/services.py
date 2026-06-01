@@ -1,10 +1,69 @@
 import logging
 import requests
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urljoin, urlparse
 from .const import DOMAIN
 from homeassistant.core import HomeAssistant, ServiceCall
 
 _LOGGER = logging.getLogger(__name__)
+ATTR_INSTANCE = "instance"
+
+
+def _get_matching_entries(
+    hass: HomeAssistant,
+    required_key: str,
+) -> list[tuple[str, dict]]:
+    """Return entries that include a required configuration key."""
+    domain_data = hass.data.get(DOMAIN, {})
+    entries = domain_data.get("entries", {})
+    matches = []
+    for entry_id, entry_info in entries.items():
+        config_data = entry_info.get("data", {})
+        if config_data.get(required_key):
+            matches.append((entry_id, entry_info))
+    return matches
+
+
+def _resolve_entry_config(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    explicit_entry_id: str | None,
+    required_key: str,
+) -> tuple[str, dict] | tuple[None, None]:
+    """Resolve which config entry should handle this service call."""
+    matches = _get_matching_entries(hass, required_key)
+
+    if explicit_entry_id:
+        for entry_id, entry_info in matches:
+            if entry_id == explicit_entry_id:
+                return entry_id, entry_info.get("data", {})
+        _LOGGER.error("Configured Hassarr instance '%s' is not available", explicit_entry_id)
+        return None, None
+
+    instance = call.data.get(ATTR_INSTANCE)
+    if instance:
+        for entry_id, entry_info in matches:
+            if entry_id == instance or entry_info.get("suffix") == instance:
+                return entry_id, entry_info.get("data", {})
+        _LOGGER.error(
+            "Unknown Hassarr instance '%s'. Use an entry_id or service suffix.",
+            instance,
+        )
+        return None, None
+
+    if len(matches) == 1:
+        entry_id, entry_info = matches[0]
+        return entry_id, entry_info.get("data", {})
+
+    if not matches:
+        _LOGGER.error("No Hassarr instances are configured for this service")
+    else:
+        available = ", ".join(entry_info.get("suffix", entry_id) for entry_id, entry_info in matches)
+        _LOGGER.error(
+            "Multiple Hassarr instances match this service. Use '%s' field or a per-instance service. Available: %s",
+            ATTR_INSTANCE,
+            available,
+        )
+    return None, None
 
 def fetch_data(url: str, headers: dict) -> dict | None:
     """Fetch data from the given URL with headers.
@@ -38,7 +97,13 @@ def get_root_folder_path(url: str, headers: dict) -> str | None:
         return data[0].get("path")
     return None
 
-def handle_add_media(hass: HomeAssistant, call: ServiceCall, media_type: str, service_name: str) -> None:
+def handle_add_media(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    media_type: str,
+    service_name: str,
+    entry_id: str | None = None,
+) -> None:
     """Handle the service action to add a media (movie or TV show).
 
     Args:
@@ -56,8 +121,10 @@ def handle_add_media(hass: HomeAssistant, call: ServiceCall, media_type: str, se
 
     _LOGGER.info(f"Title received: {title}")
 
-    # Access stored configuration data
-    config_data = hass.data[DOMAIN]
+    config_key = f"{service_name}_url"
+    resolved_entry_id, config_data = _resolve_entry_config(hass, call, entry_id, config_key)
+    if not config_data:
+        return
 
     url = config_data.get(f"{service_name}_url")
     api_key = config_data.get(f"{service_name}_api_key")
@@ -106,13 +173,31 @@ def handle_add_media(hass: HomeAssistant, call: ServiceCall, media_type: str, se
         add_response = requests.post(add_url, json=payload, headers=headers)
 
         if add_response.status_code == requests.codes.created:
-            _LOGGER.info(f"Successfully added {media_type} '{title}' to {service_name.capitalize()}")
+            _LOGGER.info(
+                "Successfully added %s '%s' to %s (entry %s)",
+                media_type,
+                title,
+                service_name.capitalize(),
+                resolved_entry_id,
+            )
         else:
-            _LOGGER.error(f"Failed to add {media_type} '{title}' to {service_name.capitalize()}: {add_response.text}")
+            _LOGGER.error(
+                "Failed to add %s '%s' to %s (entry %s): %s",
+                media_type,
+                title,
+                service_name.capitalize(),
+                resolved_entry_id,
+                add_response.text,
+            )
     else:
         _LOGGER.info(f"No results found for {media_type} '{title}'")
 
-def handle_add_overseerr_media(hass: HomeAssistant, call: ServiceCall, media_type: str) -> None:
+def handle_add_overseerr_media(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    media_type: str,
+    entry_id: str | None = None,
+) -> None:
     """Handle the service action to add a media (movie or TV show) using Overseerr.
 
     Args:
@@ -129,8 +214,9 @@ def handle_add_overseerr_media(hass: HomeAssistant, call: ServiceCall, media_typ
 
     _LOGGER.info(f"Title received: {title}")
 
-    # Access stored configuration data
-    config_data = hass.data[DOMAIN]
+    resolved_entry_id, config_data = _resolve_entry_config(hass, call, entry_id, "overseerr_url")
+    if not config_data:
+        return
 
     url = config_data.get("overseerr_url")
     api_key = config_data.get("overseerr_api_key")
@@ -190,8 +276,19 @@ def handle_add_overseerr_media(hass: HomeAssistant, call: ServiceCall, media_typ
         request_response = requests.post(request_url, json=payload, headers=headers)
 
         if request_response.status_code == requests.codes.created:
-            _LOGGER.info(f"Successfully created request for {media_type} '{title}' in Overseerr")
+            _LOGGER.info(
+                "Successfully created request for %s '%s' in Overseerr (entry %s)",
+                media_type,
+                title,
+                resolved_entry_id,
+            )
         else:
-            _LOGGER.error(f"Failed to create request for {media_type} '{title}' in Overseerr: {request_response.text}")
+            _LOGGER.error(
+                "Failed to create request for %s '%s' in Overseerr (entry %s): %s",
+                media_type,
+                title,
+                resolved_entry_id,
+                request_response.text,
+            )
     else:
         _LOGGER.info(f"No results found for {media_type} '{title}'")

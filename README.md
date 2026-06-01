@@ -41,6 +41,16 @@ Now you should have the HACS button showing on the left menu, which should bring
 
 Now Hassarr should be installed, and you can create an Automation or Intent to have sentences trigger downloads on Sonarr and Radarr.
 
+### Multiple instances (Radarr/Sonarr/Overseerr)
+If you create multiple Hassarr config entries, each entry now gets its own service names with an instance suffix:
+
+- `hassarr.add_radarr_movie_<entry_suffix>`
+- `hassarr.add_sonarr_tv_show_<entry_suffix>`
+- `hassarr.add_overseerr_movie_<entry_suffix>`
+- `hassarr.add_overseerr_tv_show_<entry_suffix>`
+
+You can also keep using the original shared service names and pass an `instance` field in service data (value can be the entry id or the suffix).
+
 ### How do I add an Automation, and what is an Automation (for noobies)?
 Good question! I'm not even sure entirely what Automations are capable of precisely, but with Hassarr you're able to map a sentence to a Hassarr action, like Add Movie or Add TV Show.
 
