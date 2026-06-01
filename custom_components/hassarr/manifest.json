@@ -2,10 +2,13 @@
   "domain": "hassarr",
   "name": "Hassarr",
   "version": "0.2.0",
-  "documentation": "https://github.com/TegridyTate/Hassarr",
-  "issue_tracker": "https://github.com/TegridyTate/Hassarr/issues",
+  "documentation": "https://github.com/JurajNyiri/Hassarr",
+  "issue_tracker": "https://github.com/JurajNyiri/Hassarr/issues",
   "requirements": [],
   "dependencies": [],
-  "codeowners": ["@TegridyTate"],
+  "codeowners": [
+    "@TegridyTate",
+    "@JurajNyiri"
+  ],
   "config_flow": true
 }
