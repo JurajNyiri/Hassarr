@@ -29,7 +29,7 @@ Now you should have the HACS button showing on the left menu, which should bring
 
 ### Install Hassarr on HACS
 1) Press the button to add this custom repo to HACS
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TegridyTate&repository=Hassarr&category=Integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JurajNyiri&repository=Hassarr&category=Integration)
 2) Now look up "Hassarr" in the HACS Store search bar and download it
 3) Restart your home assistant again for Hassarr to be properly added: `docker-compose restart <your_container_name>`
 4) Add Hassarr to your Home Assistant integrations: <your_hass_ip>:<your_hass_port>/config/integrations/dashboard
