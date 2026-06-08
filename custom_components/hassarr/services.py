@@ -98,83 +98,6 @@ def get_root_folder_path(url: str, headers: dict) -> str | None:
     return None
 
 
-def _lookup_added_media_id(
-    url: str,
-    headers: dict,
-    media_type: str,
-    media_data: dict,
-) -> int | None:
-    """Look up newly added media ID if add response body does not provide it."""
-    if media_type == "movie":
-        tmdb_id = media_data.get("tmdbId")
-        if not tmdb_id:
-            return None
-        lookup_url = urljoin(url, f"api/v3/movie?tmdbId={tmdb_id}")
-    else:
-        tvdb_id = media_data.get("tvdbId")
-        if not tvdb_id:
-            return None
-        lookup_url = urljoin(url, f"api/v3/series?tvdbId={tvdb_id}")
-
-    lookup_data = fetch_data(lookup_url, headers)
-    if isinstance(lookup_data, list) and lookup_data:
-        if media_type == "movie":
-            for item in lookup_data:
-                if item.get("tmdbId") == media_data.get("tmdbId"):
-                    return item.get("id")
-        else:
-            for item in lookup_data:
-                if item.get("tvdbId") == media_data.get("tvdbId"):
-                    return item.get("id")
-    return None
-
-
-def _trigger_arr_search(
-    url: str,
-    headers: dict,
-    media_type: str,
-    media_id: int | None,
-    title: str,
-    service_name: str,
-    resolved_entry_id: str | None,
-) -> None:
-    """Trigger an immediate search command in Radarr/Sonarr for the added media."""
-    if media_id is None:
-        _LOGGER.warning(
-            "Added %s '%s' to %s (entry %s), but could not determine internal ID to start search",
-            media_type,
-            title,
-            service_name.capitalize(),
-            resolved_entry_id,
-        )
-        return
-
-    command_url = urljoin(url, "api/v3/command")
-    command_payload = (
-        {"name": "MoviesSearch", "movieIds": [media_id]}
-        if media_type == "movie"
-        else {"name": "SeriesSearch", "seriesId": media_id}
-    )
-
-    command_response = requests.post(command_url, json=command_payload, headers=headers)
-    if command_response.status_code in (requests.codes.ok, requests.codes.created):
-        _LOGGER.info(
-            "Queued %s search for '%s' on %s (entry %s)",
-            media_type,
-            title,
-            service_name.capitalize(),
-            resolved_entry_id,
-        )
-    else:
-        _LOGGER.error(
-            "Failed to queue %s search for '%s' on %s (entry %s): %s",
-            media_type,
-            title,
-            service_name.capitalize(),
-            resolved_entry_id,
-            command_response.text,
-        )
-
 def handle_add_media(
     hass: HomeAssistant,
     call: ServiceCall,
@@ -260,39 +183,11 @@ def handle_add_media(
         add_response = requests.post(add_url, json=payload, headers=headers)
 
         if add_response.status_code == requests.codes.created:
-            added_media = None
-            try:
-                added_media = add_response.json()
-            except ValueError:
-                _LOGGER.warning(
-                    "Add response for %s '%s' on %s (entry %s) did not return JSON body",
-                    media_type,
-                    title,
-                    service_name.capitalize(),
-                    resolved_entry_id,
-                )
-
             _LOGGER.info(
-                "Successfully added %s '%s' to %s (entry %s)",
+                "Successfully added %s '%s' to %s and requested search via add options (entry %s)",
                 media_type,
                 title,
                 service_name.capitalize(),
-                resolved_entry_id,
-            )
-
-            added_media_id = None
-            if isinstance(added_media, dict):
-                added_media_id = added_media.get("id")
-            if added_media_id is None:
-                added_media_id = _lookup_added_media_id(url, headers, media_type, media_data)
-
-            _trigger_arr_search(
-                url,
-                headers,
-                media_type,
-                added_media_id,
-                title,
-                service_name,
                 resolved_entry_id,
             )
         else:
